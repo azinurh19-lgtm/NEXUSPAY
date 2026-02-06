@@ -238,11 +238,8 @@
         function openScanner() {
             document.getElementById('scanner-modal').style.display = 'flex';
             html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start(
-  { video: { facingMode: { ideal: "environment" } } },
-  { fps: 10, qrbox: 250 },
-  (decodedText) => { ... }
-)=> {closeScanner();
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
+                closeScanner();
                 tempSendData.num = decodedText;
                 showInputModal('Pay via QR', `Paying to: ${decodedText}`, [{id: 'send-amt', placeholder: 'Amount (₹)', type: 'number'}], 'upi_pay_details');
             }).catch(() => { showToast("Camera Failed"); closeScanner(); });
