@@ -1,0 +1,125 @@
+<!DOCTYPE html>  
+<html lang="en">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>Nexus Pay | Login</title>  
+    <script src="https://cdn.tailwindcss.com"></script>  
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">  
+    <style>  
+        body { 
+            background-color: #0B0E14; 
+            color: white; 
+            font-family: 'Inter', sans-serif; 
+            overflow: hidden; 
+            padding-top: 60px; /* banner ke liye space */
+        }  
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; }  
+        .input-box { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 18px; width: 100%; color: white; outline: none; font-size: 18px; transition: 0.3s; }  
+        .input-box:focus { border-color: #00f2ff; box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }  
+        .btn-prime { background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%); padding: 18px; border-radius: 15px; width: 100%; font-weight: bold; letter-spacing: 1px; transition: 0.3s; }  
+        .btn-prime:disabled { opacity: 0.5; grayscale: 1; }  
+        .screen { display: none; animation: slideUp 0.4s ease-out; }  
+        .active { display: block; }  
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }  
+    </style>  
+</head>  
+
+<body class="flex items-center justify-center min-h-screen p-6">  
+
+    <!-- 🔥 TOP NAVIGATION BANNER AD -->
+    <div class="fixed top-0 left-0 right-0 z-50 flex justify-center bg-black/60 backdrop-blur-md py-1">
+        <script>
+          atOptions = {
+            'key' : '1b980858c33313b17f49d1c7129929eb',
+            'format' : 'iframe',
+            'height' : 50,
+            'width' : 320,
+            'params' : {}
+          };
+        </script>
+        <script src="https://www.highperformanceformat.com/1b980858c33313b17f49d1c7129929eb/invoke.js"></script>
+    </div>
+    <!-- 🔥 AD END -->
+
+    <div id="phone-screen" class="screen active w-full max-w-sm">  
+        <div class="text-center mb-10">  
+            <h1 class="text-3xl font-black italic tracking-tighter">
+                NEXUS<span class="text-cyan-400">PAY</span>
+            </h1>  
+            <p class="text-gray-500 text-sm mt-2">Enter your Indian mobile number</p>  
+        </div>  
+
+        <div class="relative mb-6">  
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">+91</span>  
+            <input type="tel" id="phone-input" maxlength="10" placeholder="00000 00000" class="input-box pl-14">  
+        </div>  
+
+        <button onclick="sendOTP()" id="login-btn" class="btn-prime shadow-lg shadow-cyan-900/40">
+            LOGIN WITH OTP
+        </button>  
+    </div>  
+
+    <div id="otp-screen" class="screen w-full max-w-sm">  
+        <div class="text-center mb-10">  
+            <h1 class="text-2xl font-bold">Verify OTP</h1>  
+            <p class="text-gray-500 text-sm mt-2">
+                Sent to <span id="display-num" class="text-cyan-400"></span>
+            </p>  
+        </div>  
+
+        <input type="number" id="otp-input" placeholder="••••••" class="input-box text-center text-2xl tracking-[0.5em] mb-6 font-mono">  
+
+        <div id="otp-hint" class="text-center mb-8 hidden">  
+            <p class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+                Your One-Time Password is
+            </p>  
+            <p id="auto-otp" class="text-2xl font-black text-cyan-400 mt-1"></p>  
+        </div>  
+
+        <button onclick="verifyAndEnter()" class="btn-prime shadow-lg shadow-cyan-900/40">
+            CONTINUE TO APP
+        </button>  
+    </div>  
+
+    <script>  
+        if (localStorage.getItem('nexus_logged_in') === 'true') {  
+            window.location.href = 'nexuspay.html';  
+        }  
+
+        function sendOTP() {  
+            const phone = document.getElementById('phone-input').value;  
+            if (phone.length !== 10) {  
+                alert("Bhai, 10 digit ka Indian number daalein!");  
+                return;  
+            }  
+
+            document.getElementById('phone-screen').classList.remove('active');  
+            document.getElementById('otp-screen').classList.add('active');  
+            document.getElementById('display-num').innerText = "+91 " + phone;  
+
+            const randomOTP = Math.floor(100000 + Math.random() * 899999);  
+
+            setTimeout(() => {  
+                document.getElementById('otp-hint').classList.remove('hidden');  
+                document.getElementById('auto-otp').innerText = randomOTP;  
+                document.getElementById('otp-input').value = randomOTP;  
+            }, 1000);  
+        }  
+
+        function verifyAndEnter() {  
+            const enteredOtp = document.getElementById('otp-input').value;  
+            const actualOtp = document.getElementById('auto-otp').innerText;  
+
+            if (enteredOtp === actualOtp && enteredOtp !== "") {  
+                localStorage.setItem('nexus_logged_in', 'true');  
+                localStorage.setItem('user_phone', document.getElementById('phone-input').value);  
+                window.location.href = 'nexuspay.html';  
+            } else {  
+                alert("Invalid OTP!");  
+            }  
+        }  
+    </script>  
+
+</body>  
+</html>

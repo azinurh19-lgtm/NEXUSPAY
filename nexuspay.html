@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Pay Pro | Cloud</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #0B0E14; color: white; font-family: 'Inter', sans-serif; overflow: hidden; margin: 0; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; }
+        .gradient-bg { background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%); color: white; }
+        .nav-active { color: #00f2ff !important; transform: scale(1.1); }
+        .screen { display: none; height: 100vh; overflow-y: auto; padding-bottom: 100px; animation: fadeIn 0.3s ease; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+        input { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 15px; width: 100%; color: white; outline: none; }
+        #reader { width: 100% !important; border: none !important; border-radius: 20px; overflow: hidden; background: #000; }
+        .status-msg { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1a1f2b; padding: 12px 24px; border-radius: 50px; border: 1px solid #00f2ff; z-index: 200; font-size: 14px; }
+        .cloud-online { color: #00f2ff; font-size: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="toast" class="status-msg"></div>
+
+    <div id="scanner-modal" class="modal">
+        <div class="w-full max-w-sm text-center">
+            <div class="glass p-4 mb-4"><h2 class="text-lg font-bold mb-4 text-cyan-400">Scan QR Code</h2><div id="reader"></div></div>
+            <button onclick="closeScanner()" class="p-4 bg-white/10 rounded-2xl w-full font-bold">Cancel</button>
+        </div>
+    </div>
+
+    <div id="pin-modal" class="modal">
+        <div class="glass p-8 w-full max-w-sm text-center">
+            <h2 class="text-xl font-bold mb-2">Secure PIN</h2>
+            <input type="password" id="pin-input" maxlength="6" placeholder="••••••" class="text-center text-3xl tracking-[0.5em] mb-6 font-mono bg-transparent border-b border-cyan-500 w-full outline-none">
+            <div class="flex gap-3">
+                <button onclick="closeModal('pin-modal')" class="w-1/2 p-3 bg-white/10 rounded-xl">Cancel</button>
+                <button onclick="verifyPinAction()" class="w-1/2 p-3 gradient-bg font-bold rounded-xl">Pay Now</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="input-modal" class="modal">
+        <div class="glass p-6 w-full max-w-sm">
+            <h2 id="input-title" class="text-xl font-bold mb-1">Nexus Pay</h2>
+            <p id="input-subtitle" class="text-xs text-gray-400 mb-6"></p>
+            <div id="input-fields" class="space-y-4"></div>
+            <button onclick="processInputAction()" class="w-full mt-8 p-4 gradient-bg font-bold rounded-xl">Proceed</button>
+            <button onclick="closeModal('input-modal')" class="w-full mt-2 p-2 text-gray-500 text-sm">Close</button>
+        </div>
+    </div>
+
+    <div id="success-modal" class="modal">
+        <div class="glass p-10 text-center w-full max-w-xs">
+            <div class="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6"><i class="fas fa-check text-green-500 text-4xl"></i></div>
+            <h2 class="text-2xl font-bold mb-2">Success!</h2>
+            <p id="success-msg" class="text-gray-400 text-sm mb-8"></p>
+            <button onclick="closeModal('success-modal')" class="w-full p-4 gradient-bg font-bold rounded-xl">Done</button>
+        </div>
+    </div>
+
+    <div id="balance-modal" class="modal" onclick="closeModal('balance-modal')">
+        <div class="glass p-10 text-center w-full max-w-xs">
+            <p class="text-gray-400 text-xs uppercase tracking-widest">Available Balance</p>
+            <h1 class="text-5xl font-bold text-white mt-4">₹<span id="bal-val">0</span></h1>
+        </div>
+    </div>
+
+    <header class="p-6 flex justify-between items-center sticky top-0 bg-[#0B0E14] z-40">
+        <div class="flex flex-col">
+            <h1 class="font-bold text-xl tracking-tighter">NEXUS<span class="text-cyan-400">PAY</span></h1>
+            <span id="cloud-status" class="cloud-online">● CLOUD SYNCING...</span>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
+            <i class="fas fa-user text-cyan-400"></i>
+        </div>
+    </header>
+
+    <main class="px-5">
+        <section id="home" class="screen active">
+            <div class="grid grid-cols-4 gap-3 mb-8">
+                <div onclick="openScanner()" class="glass p-3 h-24 flex flex-col items-center justify-center border-cyan-500/40 border">
+                    <i class="fas fa-qrcode text-cyan-400 mb-2"></i>
+                    <span class="text-[9px] font-bold uppercase">Scan QR</span>
+                </div>
+                <div onclick="openUpiTransfer()" class="glass p-3 h-24 flex flex-col items-center justify-center">
+                    <i class="fas fa-at text-blue-400 mb-2"></i>
+                    <span class="text-[9px] font-bold uppercase">To UPI ID</span>
+                </div>
+                <div onclick="syncCloud()" class="glass p-3 h-24 flex flex-col items-center justify-center">
+                    <i class="fas fa-sync text-green-500 mb-2"></i>
+                    <span class="text-[9px] font-bold uppercase">Refresh</span>
+                </div>
+                <div onclick="askPin('balance')" class="glass p-3 h-24 flex flex-col items-center justify-center">
+                    <i class="fas fa-wallet text-purple-400 mb-2"></i>
+                    <span class="text-[9px] font-bold uppercase">Balance</span>
+                </div>
+            </div>
+
+            <div class="glass p-5 flex items-center justify-between border-l-4 border-cyan-500">
+                <div>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase">Your Unique UPI ID</p>
+                    <p class="text-sm font-mono tracking-tight text-cyan-400" id="display-upi-home">loading...</p>
+                </div>
+                <button onclick="copyMyUpi()" class="text-xs bg-white/5 px-3 py-1 rounded-lg active:bg-cyan-500">Copy</button>
+            </div>
+
+            <h3 class="mt-8 mb-4 text-gray-500 text-[10px] font-bold uppercase tracking-widest">Recharge & Bills</h3>
+            <div class="glass p-6 grid grid-cols-4 gap-4 text-center">
+                <div><i class="fas fa-mobile-alt text-cyan-400 mb-2 text-xl"></i><p class="text-[9px]">Mobile</p></div>
+                <div><i class="fas fa-lightbulb text-yellow-500 mb-2 text-xl"></i><p class="text-[9px]">Electricity</p></div>
+                <div><i class="fas fa-tv text-red-400 mb-2 text-xl"></i><p class="text-[9px]">DTH</p></div>
+                <div><i class="fas fa-university text-pink-400 mb-2 text-xl"></i><p class="text-[9px]">Bank</p></div>
+            </div>
+        </section>
+
+        <section id="earning" class="screen">
+            <div class="flex flex-col items-center pt-10">
+                <div onclick="tapToEarn()" class="w-64 h-64 rounded-full border-[10px] border-cyan-500/10 flex flex-col items-center justify-center cursor-pointer active:scale-95 transition-all shadow-2xl bg-black/40">
+                    <i class="fas fa-bolt text-cyan-400 text-5xl mb-4"></i>
+                    <h2 class="text-5xl font-black">₹1</h2>
+                    <p class="text-[10px] text-cyan-500 mt-2 font-bold tracking-widest">TAP TO EARN</p>
+                </div>
+                <div class="mt-12 glass px-12 py-5 text-center w-full max-w-[250px]">
+                    <p class="text-gray-500 text-[10px] mb-1">WALLET BALANCE</p>
+                    <p class="text-4xl font-black text-white">₹<span class="user-bal">0</span></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="history" class="screen">
+            <div class="p-2">
+                <h2 class="text-2xl font-bold mb-6">Recent Activity</h2>
+                <div id="tx-list" class="space-y-4"></div>
+            </div>
+        </section>
+
+        <section id="settings" class="screen">
+            <div class="glass p-8 mb-6 text-center">
+                <div class="bg-white p-4 rounded-2xl w-fit mx-auto mb-4 shadow-lg">
+                    <img id="my-unique-qr" src="" class="w-44 h-44" alt="Personal QR">
+                </div>
+                <p class="font-bold text-xl mb-1">Nexus User</p>
+                <p class="text-sm text-cyan-500 font-mono" id="display-upi-settings">loading...</p>
+            </div>
+            <div class="space-y-3">
+                <div onclick="askPin('change_pin')" class="glass p-5 flex justify-between items-center cursor-pointer">
+                    <div class="flex items-center gap-4"><i class="fas fa-key text-cyan-400"></i><span>Change PIN</span></div>
+                </div>
+                <div onclick="localStorage.clear(); location.reload();" class="glass p-5 text-red-500 text-center font-bold">Reset App</div>
+            </div>
+        </section>
+    </main>
+
+    <nav class="fixed bottom-0 w-full bg-[#0B0E14]/90 backdrop-blur-lg border-t border-white/5 flex justify-around p-4 z-40 pb-10">
+        <div onclick="nav('home', this)" class="nav-active text-gray-500"><i class="fas fa-home text-xl"></i></div>
+        <div onclick="nav('earning', this)" class="text-gray-500"><i class="fas fa-plus-circle text-xl"></i></div>
+        <div onclick="nav('history', this)" class="text-gray-500"><i class="fas fa-history text-xl"></i></div>
+        <div onclick="nav('settings', this)" class="text-gray-500"><i class="fas fa-cog text-xl"></i></div>
+    </nav>
+
+    <script>
+        // GOOGLE SCRIPT URL
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwh498xrRMr0VnTwOComPuDWj-sulXN8j6r1jeYZhkJMXKRELOiUWgEJj6uOiWSoR2-6Q/exec";
+
+        let balance = 0;
+        let history = JSON.parse(localStorage.getItem('nx_hist')) || [];
+        let savedPin = localStorage.getItem('nx_pin') || "123456";
+        let myUpiId = localStorage.getItem('nx_upi_id');
+        let currentPinAction = '';
+        let tempSendData = {};
+        let html5QrCode;
+
+        window.onload = () => {
+            if(!myUpiId) {
+                myUpiId = `nexus@user${Math.floor(1000 + Math.random() * 8999)}`;
+                localStorage.setItem('nx_upi_id', myUpiId);
+            }
+            document.getElementById('display-upi-home').innerText = myUpiId;
+            document.getElementById('display-upi-settings').innerText = myUpiId;
+            document.getElementById('my-unique-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(myUpiId)}`;
+            
+            syncCloud(); // Initial Cloud Sync
+        };
+
+        // CLOUD SYNC LOGIC
+        async function syncCloud() {
+            document.getElementById('cloud-status').innerText = "● CLOUD SYNCING...";
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=sync&upi_id=${myUpiId}`);
+                const data = await response.json();
+                balance = data.bal;
+                document.getElementById('cloud-status').innerText = "● CLOUD ONLINE";
+                updateDisplay();
+            } catch (e) {
+                document.getElementById('cloud-status').innerText = "● CLOUD ERROR";
+                showToast("Cloud Connection Failed");
+            }
+        }
+
+        async function initiateCloudTransfer(to, amt) {
+            document.getElementById('cloud-status').innerText = "● PROCESSING PAY...";
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=send&sender=${myUpiId}&receiver=${to}&amt=${amt}`);
+                const status = await response.text();
+                
+                if(status.includes("SUCCESS")) {
+                    balance -= amt;
+                    history.unshift({name: 'Paid to: ' + to, amt: amt, type: 'minus', date: new Date().toLocaleTimeString()});
+                    localStorage.setItem('nx_hist', JSON.stringify(history));
+                    document.getElementById('success-msg').innerText = `₹${amt} sent to ${to}`;
+                    document.getElementById('success-modal').style.display = 'flex';
+                    syncCloud(); // Refresh after pay
+                } else {
+                    showToast("Transaction Failed: Check ID/Balance");
+                }
+            } catch (e) {
+                showToast("Network Error");
+            }
+        }
+
+        function updateDisplay() {
+            document.querySelectorAll('.user-bal').forEach(el => el.innerText = balance.toLocaleString());
+            const list = document.getElementById('tx-list');
+            list.innerHTML = history.map(t => `
+                <div class="glass p-4 flex justify-between items-center border-l-4 ${t.type=='plus'?'border-green-500':'border-red-500'}">
+                    <div><p class="text-sm font-bold">${t.name}</p><p class="text-[10px] text-gray-500">${t.date}</p></div>
+                    <p class="font-black ${t.type=='plus'?'text-green-400':'text-red-400'}">${t.type=='plus'?'+':'-'}₹${t.amt}</p>
+                </div>
+            `).join('');
+        }
+
+        // Action Handlers
+        function openScanner() {
+            document.getElementById('scanner-modal').style.display = 'flex';
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
+                closeScanner();
+                tempSendData.num = decodedText;
+                showInputModal('Pay via QR', `Paying to: ${decodedText}`, [{id: 'send-amt', placeholder: 'Amount (₹)', type: 'number'}], 'upi_pay_details');
+            }).catch(() => { showToast("Camera Failed"); closeScanner(); });
+        }
+
+        function closeScanner() {
+            if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('scanner-modal').style.display = 'none').catch(()=>document.getElementById('scanner-modal').style.display = 'none');
+        }
+
+        function openUpiTransfer() {
+            showInputModal('Transfer via ID', 'Enter Nexus ID', [
+                {id: 'send-upi', placeholder: 'nexus@user1234', type: 'text'},
+                {id: 'send-amt', placeholder: 'Amount (₹)', type: 'number'}
+            ], 'upi_pay_details');
+        }
+
+        function verifyPinAction() {
+            if(document.getElementById('pin-input').value === savedPin) {
+                closeModal('pin-modal');
+                if(currentPinAction === 'balance') {
+                    document.getElementById('bal-val').innerText = balance.toLocaleString();
+                    document.getElementById('balance-modal').style.display = 'flex';
+                } else if(currentPinAction === 'send') {
+                    initiateCloudTransfer(tempSendData.num, tempSendData.amt);
+                }
+            } else { showToast("Wrong PIN!"); }
+        }
+
+        function tapToEarn() {
+            // This is just a local effect, for real earning you'd need a cloud 'add' action
+            balance += 1;
+            showToast("✨ Mined +₹1");
+            updateDisplay();
+        }
+
+        // Global Helpers
+        function nav(id, el) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('nav div').forEach(n => n.classList.remove('nav-active'));
+            el.classList.add('nav-active');
+            if(id === 'home' || id === 'earning') syncCloud(); // Sync on nav
+        }
+        function askPin(action) { currentPinAction = action; document.getElementById('pin-input').value = ''; document.getElementById('pin-modal').style.display = 'flex'; }
+        function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2000); }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function copyMyUpi() { navigator.clipboard.writeText(myUpiId); showToast("ID Copied!"); }
+
+        function showInputModal(title, sub, fields, type) {
+            document.getElementById('input-title').innerText = title;
+            document.getElementById('input-subtitle').innerText = sub;
+            const container = document.getElementById('input-fields');
+            container.innerHTML = fields.map(f => `<input id="${f.id}" type="${f.type}" placeholder="${f.placeholder}">`).join('');
+            document.getElementById('input-modal').style.display = 'flex';
+            document.getElementById('input-modal').dataset.type = type;
+        }
+
+        function processInputAction() {
+            const type = document.getElementById('input-modal').dataset.type;
+            if(type === 'upi_pay_details') {
+                const upi = document.getElementById('send-upi')?.value || tempSendData.num;
+                const amt = parseInt(document.getElementById('send-amt').value);
+                if(!amt || !upi) return showToast("Fill details");
+                tempSendData = {num: upi, amt: amt};
+                closeModal('input-modal');
+                askPin('send');
+            }
+        }
+    </script>
+</body>
+</html>
